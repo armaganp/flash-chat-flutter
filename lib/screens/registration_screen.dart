@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flash_chat/components/buttons.dart';
 import 'package:flash_chat/constants.dart';
 import 'package:flash_chat/screens/chat_screen.dart';
@@ -18,80 +20,129 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   var phoneNumber;
   String smsCode;
   String verificationId;
-  FirebaseAuth _iAuth = FirebaseAuth.instance;
-  dynamic _cancelListener;
+  final FirebaseAuth _iAuth = FirebaseAuth.instance;
 
-  Future<void> verifyPhone(dynamic phoneNumber) async {
-    await _iAuth.verifyPhoneNumber(
-      phoneNumber: phoneNumber,
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        await _iAuth.signInWithCredential(credential);
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        if (e.code == 'invalid-phone-number') {
-          print('phone number is not valid');
-        } else {
-          print('this: $e');
-        }
-      },
-      codeSent: (String verificationId, int resendToken) async {
-        smsCode = await smsDialogBox(context);
-        if (smsCode == null) {
-          showSnackbar('there is no smscode');
-        }
-        PhoneAuthCredential phoneAuthCredential = PhoneAuthProvider.credential(
-          verificationId: verificationId,
-          smsCode: smsCode,
-        );
+  Future<void> fVerifyPhone(dynamic phoneNumber) async {
+    try {
+      await _iAuth.verifyPhoneNumber(
+        phoneNumber: phoneNumber,
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          await _iAuth.signInWithCredential(credential);
+          print('ok');
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          if (e.code == 'invalid-phone-number') {
+            print('phone number is not valid');
+          } else {
+            print('this: $e');
+          }
+          print('failed');
+        },
+        codeSent: (String verificationId, int resendToken) async {
+          smsCode = await smsDialogBox();
+          if (smsCode == null) {
+            return;
+          }
+          PhoneAuthCredential phoneAuthCredential =
+              PhoneAuthProvider.credential(
+            verificationId: verificationId,
+            smsCode: smsCode,
+          );
 
-        await _iAuth.signInWithCredential(phoneAuthCredential);
-        Navigator.pushNamed(context, ChatScreen.page_id);
-      },
-      timeout: const Duration(seconds: 30),
-      codeAutoRetrievalTimeout: (String verificationId) {
-        print('timed out');
-        print(verificationId);
-      },
-    );
+          await _iAuth.signInWithCredential(phoneAuthCredential);
+          Navigator.pushNamed(context, ChatScreen.page_id);
+        },
+        timeout: const Duration(seconds: 30),
+        codeAutoRetrievalTimeout: (String verificationId) {
+          print('timed out');
+          print(verificationId);
+        },
+      );
+    } catch (e) {
+      print('this message from verifyPhoneNumber: $e');
+    }
   }
 
-  Future<String> smsDialogBox(BuildContext context) {
+  Future<String> smsDialogBox() {
+    String code;
+    String errorMsg = 'Please Enter Your Smscode ';
+    String titleText = ' smscode ';
+    bool error = false;
+
     return showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text(
-            'Enter Sms Code',
-          ),
-          content: Container(
-            height: 100.0,
-            child: Column(
-              children: [
-                TextField(
-                  onChanged: (value) {
-                    smsCode = value;
-                  },
-                ),
-              ],
+          // backgroundColor: Colors.orangeAccent,
+          title: Center(
+            child: Text(
+              titleText,
+              style: TextStyle(color: Colors.blue[50], fontSize: 32),
             ),
           ),
-          contentPadding: EdgeInsets.only(left: 32, right: 32),
-          actions: [
-            Center(
-              child: TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop(smsCode);
-                },
-                child: Text('OK'),
-              ),
-            )
-          ],
+          content: StatefulBuilder(
+            builder: (BuildContext context, StateSetter setState) {
+              return Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Container(
+                  height: 250.0,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      TextField(
+                        maxLength: 6,
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white, fontSize: 48),
+                        onChanged: (value) {
+                          code = value;
+                        },
+                      ),
+                      SizedBox(
+                        height: 16.0,
+                      ),
+                      (error
+                          ? Text(
+                              errorMsg,
+                              style: TextStyle(color: Colors.red),
+                            )
+                          : Container()),
+                      TextButton(
+                        onPressed: () {
+                          code == null || code == ''
+                              ? setState(() {
+                                  error = true;
+                                })
+                              : Navigator.of(context).pop(code);
+                        },
+                        child: Text(
+                          'CONFIRM',
+                          style: kCbuttonTextStyle,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                        child: Text(
+                          'CANCEL',
+                          style: kCbuttonTextStyle,
+                        ),
+                      )
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          contentPadding: EdgeInsets.only(left: 24, right: 24),
+          actions: [],
         );
       },
     );
   }
 
-  showSnackbar(String msg) {
+  fShowSnackbar(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
       action: SnackBarAction(
@@ -111,7 +162,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       resizeToAvoidBottomInset: false,
       backgroundColor: Colors.white,
       body: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 24.0),
+        padding: EdgeInsets.symmetric(horizontal: 80.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -144,18 +195,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               vColor: Colors.blueAccent,
               vText: 'Send Me Code',
               fPressed: () {
-                verifyPhone(phoneNumber);
+                fVerifyPhone(phoneNumber);
               },
             ),
             Cbutton(
               vColor: Colors.blueAccent,
               vText: 'auth check',
               fPressed: () {
-                _cancelListener = _iAuth.authStateChanges().listen((User user) {
+                _iAuth.authStateChanges().listen((User user) {
                   if (user == null) {
-                    showSnackbar('signed out');
+                    fShowSnackbar('signed out');
                   } else {
-                    showSnackbar(user.uid);
+                    fShowSnackbar(user.uid);
                   }
                 });
               },
@@ -164,10 +215,19 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               vColor: Colors.blueAccent,
               vText: 'sign out',
               fPressed: () async {
-                showSnackbar('signed out');
-                _cancelListener();
-                await _iAuth.signOut();
+                if (_iAuth.currentUser == null) {
+                  fShowSnackbar('already signed out');
+                } else {
+                  await _iAuth.signOut();
+                  fShowSnackbar('signed out');
+                }
               },
+            ),
+            BackButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              color: Colors.red,
             ),
           ],
         ),

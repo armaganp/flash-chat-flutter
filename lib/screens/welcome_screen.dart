@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flash_chat/screens/login_screen.dart';
 import 'package:flash_chat/screens/registration_screen.dart';
 import 'package:flutter/material.dart';
@@ -16,21 +19,23 @@ class WelcomeScreen extends StatefulWidget {
 class _WelcomeScreenState extends State<WelcomeScreen>
     with SingleTickerProviderStateMixin {
   AnimationController controller;
-  dynamic _cancelListener;
+
   @override
   void initState() {
     super.initState();
-    _cancelListener =
-        FirebaseAuth.instance.authStateChanges().listen((User user) {
+    FirebaseAuth.instance.authStateChanges().listen((User user) {
       if (user == null) {
-        print('signet out');
+        print('welcome_screen: unsigned user');
       } else {
-        print(user.uid);
+        print('welcome_screen: ${user.uid}');
         Navigator.pushNamed(context, ChatScreen.page_id);
       }
     });
     controller = AnimationController(
-        duration: Duration(seconds: 1), vsync: this, upperBound: 100.0);
+      duration: Duration(seconds: 1),
+      vsync: this,
+      upperBound: 100.0,
+    );
     controller.forward();
     controller.addListener(() {
       setState(() {
@@ -42,7 +47,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   @override
   void dispose() {
     super.dispose();
-    _cancelListener();
   }
 
   @override

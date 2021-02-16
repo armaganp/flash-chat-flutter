@@ -23,6 +23,7 @@ const kCbuttonTextStyle = TextStyle(
 );
 const kTextFileDecoration = InputDecoration(
   hintText: null,
+  focusColor: Colors.black,
   hintStyle: TextStyle(color: Colors.black12),
   contentPadding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 20.0),
   border: OutlineInputBorder(
