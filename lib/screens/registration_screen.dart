@@ -6,9 +6,10 @@ import 'package:flash_chat/screens/chat_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
+/*???? how listen user status with Streambuilder */
+/* ?? try catch in verifyPhone Number */
 
 class RegistrationScreen extends StatefulWidget {
   static const String page_id = 'registration_screen';
@@ -20,53 +21,59 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   var phoneNumber;
   String smsCode;
   String verificationId;
+  PhoneAuthCredential phoneAuthCredential;
+  UserCredential userCredential;
   final FirebaseAuth _iAuth = FirebaseAuth.instance;
 
   Future<void> fVerifyPhone(dynamic phoneNumber) async {
-    try {
-      await _iAuth.verifyPhoneNumber(
-        phoneNumber: phoneNumber,
-        verificationCompleted: (PhoneAuthCredential credential) async {
-          await _iAuth.signInWithCredential(credential);
-          print('ok');
-        },
-        verificationFailed: (FirebaseAuthException e) {
-          if (e.code == 'invalid-phone-number') {
-            print('phone number is not valid');
-          } else {
-            print('this: $e');
-          }
-          print('failed');
-        },
-        codeSent: (String verificationId, int resendToken) async {
-          smsCode = await smsDialogBox();
-          if (smsCode == null) {
-            return;
-          }
-          PhoneAuthCredential phoneAuthCredential =
-              PhoneAuthProvider.credential(
-            verificationId: verificationId,
-            smsCode: smsCode,
-          );
-
-          await _iAuth.signInWithCredential(phoneAuthCredential);
-          Navigator.pushNamed(context, ChatScreen.page_id);
-        },
-        timeout: const Duration(seconds: 30),
-        codeAutoRetrievalTimeout: (String verificationId) {
-          print('timed out');
-          print(verificationId);
-        },
-      );
-    } catch (e) {
-      print('this message from verifyPhoneNumber: $e');
-    }
+    await _iAuth.verifyPhoneNumber(
+      phoneNumber: phoneNumber,
+      //verificationCompleted not calling automatically??
+      verificationCompleted: (PhoneAuthCredential phoneAuthCredential) async {
+        await _iAuth.signInWithCredential(phoneAuthCredential);
+      },
+      verificationFailed: (FirebaseAuthException e) {
+        if (e.code == 'invalid-phone-number') {
+          print('phone number is not valid');
+        } else {
+          print('from verificationFailed: $e');
+        }
+      },
+      codeSent: (String verificationId, int resendToken) async {
+        smsCode = await smsDialogBox();
+        if (smsCode == null) {
+          return;
+        }
+        phoneAuthCredential = PhoneAuthProvider.credential(
+          verificationId: verificationId,
+          smsCode: smsCode,
+        );
+        try {
+          final userCredential =
+              await _iAuth.signInWithCredential(phoneAuthCredential);
+          print(userCredential.additionalUserInfo);
+          // print(usercredential.credential.providerid); // throw e
+          // print(usercredential.credential.signinmethod); // throw e
+          print(userCredential.credential); // null
+          print(userCredential.user);
+          print(userCredential.runtimeType); // UserCredential
+        } catch (e) {
+          print('arp -> signInWithCredential(): $e');
+        }
+      },
+      timeout: const Duration(seconds: 30),
+      codeAutoRetrievalTimeout: (String verificationId) {
+        print('timed out');
+        print(verificationId);
+      },
+    );
   }
 
   Future<String> smsDialogBox() {
-    String code;
-    String errorMsg = 'Please Enter Your Smscode ';
-    String titleText = ' smscode ';
+    String smsCode;
+    int smsCodeLenght = 6;
+    String errorMsg = 'Please Enter Your SmssmsCode ';
+    String titleText = ' smsCode ';
     bool error = false;
 
     return showDialog(
@@ -83,19 +90,19 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           content: StatefulBuilder(
             builder: (BuildContext context, StateSetter setState) {
               return Padding(
-                padding: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.all(8),
                 child: Container(
                   height: 250.0,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       TextField(
-                        maxLength: 6,
+                        maxLength: smsCodeLenght,
                         keyboardType: TextInputType.number,
                         textAlign: TextAlign.center,
                         style: TextStyle(color: Colors.white, fontSize: 48),
                         onChanged: (value) {
-                          code = value;
+                          smsCode = value;
                         },
                       ),
                       SizedBox(
@@ -109,11 +116,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           : Container()),
                       TextButton(
                         onPressed: () {
-                          code == null || code == ''
+                          smsCode == null ||
+                                  smsCode == '' ||
+                                  smsCode.length < smsCodeLenght
                               ? setState(() {
                                   error = true;
                                 })
-                              : Navigator.of(context).pop(code);
+                              : Navigator.of(context).pop(smsCode);
                         },
                         child: Text(
                           'CONFIRM',
