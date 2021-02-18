@@ -1,10 +1,8 @@
-import 'dart:async';
 import 'dart:ui';
 
 import 'package:flash_chat/components/buttons.dart';
 import 'package:flash_chat/constants.dart';
 import 'package:flash_chat/globals.dart';
-import 'package:flash_chat/screens/chat_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -111,6 +109,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 },
               ),
               Cbutton(
+                // AUTH CHECK {FOR DEBUG}
                 vColor: Colors.blueAccent,
                 vText: 'auth check',
                 fPressed: () {
@@ -122,7 +121,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 },
               ),
               // after verification failed navigates new register screen, spinner still running when press
-              // this button ?
+              // this button ? - is corrected
               BackButton(
                 onPressed: () {
                   Navigator.of(context).pop();

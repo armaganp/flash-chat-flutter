@@ -36,6 +36,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     });
     mAuth.authStateChanges().listen((User user) {
       if (user == null) {
+        // vUser = user;
         print('welcome_screen: unsigned user');
         // if current screen not Welcome screen return it
         Navigator.popUntil(
@@ -52,6 +53,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
           Navigator.pushNamed(context, WelcomeScreen.page_id);
         }
       } else {
+        vUser = user;
         print('welcome_screen: ${user.uid}');
         Navigator.pushNamed(context, ChatScreen.page_id);
       }

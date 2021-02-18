@@ -35,8 +35,8 @@ class _ChatScreenState extends State<ChatScreen> {
             TextButton(
               child: Text('text'),
               onPressed: () {
-                print('this: ${userCredential.user.uid}');
-                // print('this: ${vUser.uid}');
+                // print('this: ${userCredential.user.uid}');
+                print('this: ${vUser.uid}');
               },
             ),
             Container(

@@ -40,7 +40,7 @@ class VerifyPhone {
         isInvalidNumber = true;
         Navigator.pushNamed(contextFromScreen, RegistrationScreen.page_id);
       },
-      codeSent: (String verificationId, int resendToken) async {
+      codeSent: (String verificationId, [int resendToken]) async {
         smsCode =
             await SmsDialogBox(context: contextFromScreen).showSmsDialogBox();
         phoneAuthCredential = PhoneAuthProvider.credential(
@@ -52,6 +52,7 @@ class VerifyPhone {
             userCredential =
                 value; // to global variable area for user credentials using in that area
             isInvalidNumber = false;
+            isTimeOut = false;
           });
         } catch (e) {
           return e;
@@ -61,9 +62,11 @@ class VerifyPhone {
       //# when sms code is incorrect that code triggered don't isInvalidNumber false
       codeAutoRetrievalTimeout: (String verificationId) {
         print('timed out');
-        isInvalidNumber = false;
-        isTimeOut = true;
-        Navigator.pushNamed(contextFromScreen, RegistrationScreen.page_id);
+        if (vUser == null) {
+          isInvalidNumber = false;
+          isTimeOut = true;
+          Navigator.pushNamed(contextFromScreen, RegistrationScreen.page_id);
+        }
       },
     );
   }
