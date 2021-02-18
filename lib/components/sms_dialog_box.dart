@@ -67,6 +67,7 @@ class SmsDialogBox {
                         ),
                       ),
                       // there is a problem screen  giving a wrong sms error maybe route welcome screen
+                      // -> is corrected with (vUser = user) and control it
                       TextButton(
                         onPressed: () {
                           Navigator.pushNamed(

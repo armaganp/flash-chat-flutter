@@ -36,7 +36,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     });
     mAuth.authStateChanges().listen((User user) {
       if (user == null) {
-        // vUser = user;
+        vUser = user;
         print('welcome_screen: unsigned user');
         // if current screen not Welcome screen return it
         Navigator.popUntil(
