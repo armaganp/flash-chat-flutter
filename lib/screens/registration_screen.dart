@@ -1,15 +1,16 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flash_chat/components/buttons.dart';
 import 'package:flash_chat/constants.dart';
+import 'package:flash_chat/globals.dart';
 import 'package:flash_chat/screens/chat_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
-/*???? how listen user status with Streambuilder */
-/* ?? try catch in verifyPhone Number */
+import 'package:flash_chat/services/phone_verification.dart';
+import 'package:modal_progress_hud/modal_progress_hud.dart';
 
 class RegistrationScreen extends StatefulWidget {
   static const String page_id = 'registration_screen';
@@ -19,139 +20,10 @@ class RegistrationScreen extends StatefulWidget {
 
 class _RegistrationScreenState extends State<RegistrationScreen> {
   var phoneNumber;
-  String smsCode;
-  String verificationId;
-  PhoneAuthCredential phoneAuthCredential;
-  UserCredential userCredential;
-  final FirebaseAuth _iAuth = FirebaseAuth.instance;
-
-  Future<void> fVerifyPhone(dynamic phoneNumber) async {
-    await _iAuth.verifyPhoneNumber(
-      phoneNumber: phoneNumber,
-      //verificationCompleted not calling automatically??
-      verificationCompleted: (PhoneAuthCredential phoneAuthCredential) async {
-        await _iAuth.signInWithCredential(phoneAuthCredential);
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        if (e.code == 'invalid-phone-number') {
-          print('phone number is not valid');
-        } else {
-          print('from verificationFailed: $e');
-        }
-      },
-      codeSent: (String verificationId, int resendToken) async {
-        smsCode = await smsDialogBox();
-        if (smsCode == null) {
-          return;
-        }
-        phoneAuthCredential = PhoneAuthProvider.credential(
-          verificationId: verificationId,
-          smsCode: smsCode,
-        );
-        try {
-          final userCredential =
-              await _iAuth.signInWithCredential(phoneAuthCredential);
-          print(userCredential.additionalUserInfo);
-          // print(usercredential.credential.providerid); // throw e
-          // print(usercredential.credential.signinmethod); // throw e
-          print(userCredential.credential); // null
-          print(userCredential.user);
-          print(userCredential.runtimeType); // UserCredential
-        } catch (e) {
-          print('arp -> signInWithCredential(): $e');
-        }
-      },
-      timeout: const Duration(seconds: 30),
-      codeAutoRetrievalTimeout: (String verificationId) {
-        print('timed out');
-        print(verificationId);
-      },
-    );
-  }
-
-  Future<String> smsDialogBox() {
-    String smsCode;
-    int smsCodeLenght = 6;
-    String errorMsg = 'Please Enter Your SmssmsCode ';
-    String titleText = ' smsCode ';
-    bool error = false;
-
-    return showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          // backgroundColor: Colors.orangeAccent,
-          title: Center(
-            child: Text(
-              titleText,
-              style: TextStyle(color: Colors.blue[50], fontSize: 32),
-            ),
-          ),
-          content: StatefulBuilder(
-            builder: (BuildContext context, StateSetter setState) {
-              return Padding(
-                padding: const EdgeInsets.all(8),
-                child: Container(
-                  height: 250.0,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      TextField(
-                        maxLength: smsCodeLenght,
-                        keyboardType: TextInputType.number,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white, fontSize: 48),
-                        onChanged: (value) {
-                          smsCode = value;
-                        },
-                      ),
-                      SizedBox(
-                        height: 16.0,
-                      ),
-                      (error
-                          ? Text(
-                              errorMsg,
-                              style: TextStyle(color: Colors.red),
-                            )
-                          : Container()),
-                      TextButton(
-                        onPressed: () {
-                          smsCode == null ||
-                                  smsCode == '' ||
-                                  smsCode.length < smsCodeLenght
-                              ? setState(() {
-                                  error = true;
-                                })
-                              : Navigator.of(context).pop(smsCode);
-                        },
-                        child: Text(
-                          'CONFIRM',
-                          style: kCbuttonTextStyle,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                        },
-                        child: Text(
-                          'CANCEL',
-                          style: kCbuttonTextStyle,
-                        ),
-                      )
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-          contentPadding: EdgeInsets.only(left: 24, right: 24),
-          actions: [],
-        );
-      },
-    );
-  }
-
-  fShowSnackbar(String msg) {
+  bool showSpinner = false;
+  VerifyPhone vp;
+  UserCredential vUserCredential;
+  fShowSnackBar(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
       action: SnackBarAction(
@@ -165,80 +37,100 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     ));
   }
 
+  registerUser(var phoneNum) async {
+    vp = VerifyPhone(phoneNumber: phoneNumber, contextFromScreen: context);
+    setState(() {
+      showSpinner = true;
+    });
+    await vp.verifyPhone();
+  }
+
   @override
   Widget build(BuildContext context) {
+    String wrongNumber = 'invalid number ';
+    String wrongSmsCode = 'invalid sms code ';
+
     return Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: Colors.white,
-      body: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 80.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Hero(
-              tag: 'logo',
-              child: Container(
-                height: 100.0,
-                child: Image.asset('images/logo.png'),
+      body: ModalProgressHUD(
+        inAsyncCall: showSpinner,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 60.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Hero(
+                tag: 'logo',
+                child: Container(
+                  height: 100.0,
+                  child: Image.asset('images/logo.png'),
+                ),
               ),
-            ),
-            SizedBox(
-              height: 48.0,
-            ),
-            TextField(
-              textAlign: TextAlign.center,
-              keyboardType: TextInputType.phone,
-              inputFormatters: <TextInputFormatter>[
-                FilteringTextInputFormatter.digitsOnly,
-              ],
-              style: TextStyle(color: Colors.black87),
-              onChanged: (value) {
-                phoneNumber = '+90$value';
-                //Do something with the user input.
-              },
-              decoration: kTextFileDecoration.copyWith(
-                  hintText: 'Enter Your Phone Number'),
-            ),
-            Cbutton(
-              vColor: Colors.blueAccent,
-              vText: 'Send Me Code',
-              fPressed: () {
-                fVerifyPhone(phoneNumber);
-              },
-            ),
-            Cbutton(
-              vColor: Colors.blueAccent,
-              vText: 'auth check',
-              fPressed: () {
-                _iAuth.authStateChanges().listen((User user) {
-                  if (user == null) {
-                    fShowSnackbar('signed out');
+              SizedBox(
+                height: 48.0,
+              ),
+              (VerifyPhone.isInvalidNumber
+                  ? Center(
+                      child: Text(
+                        'verification failed: $wrongNumber',
+                        style: TextStyle(color: Colors.red, fontSize: 16.0),
+                      ),
+                    )
+                  : Container()),
+              (VerifyPhone.isTimeOut
+                  ? Center(
+                      child: Text(
+                        'verification failed: $wrongSmsCode',
+                        style: TextStyle(color: Colors.red, fontSize: 16.0),
+                      ),
+                    )
+                  : Container()),
+              TextField(
+                textAlign: TextAlign.center,
+                keyboardType: TextInputType.phone,
+                inputFormatters: <TextInputFormatter>[
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+                style: TextStyle(color: Colors.black87),
+                onChanged: (value) {
+                  phoneNumber = '+90$value';
+                },
+                decoration: kTextFileDecoration.copyWith(
+                    hintText: 'Enter Your Phone Number'),
+              ),
+              Cbutton(
+                // SEND ME CODE
+                vColor: Colors.blueAccent,
+                vText: 'Send Me Code',
+                fPressed: () {
+                  (phoneNumber != null)
+                      ? registerUser(phoneNumber)
+                      : fShowSnackBar('enter a phone number');
+                },
+              ),
+              Cbutton(
+                vColor: Colors.blueAccent,
+                vText: 'auth check',
+                fPressed: () {
+                  if (vUser == null) {
+                    fShowSnackBar('signed out');
                   } else {
-                    fShowSnackbar(user.uid);
+                    fShowSnackBar(mAuth.currentUser.uid);
                   }
-                });
-              },
-            ),
-            Cbutton(
-              vColor: Colors.blueAccent,
-              vText: 'sign out',
-              fPressed: () async {
-                if (_iAuth.currentUser == null) {
-                  fShowSnackbar('already signed out');
-                } else {
-                  await _iAuth.signOut();
-                  fShowSnackbar('signed out');
-                }
-              },
-            ),
-            BackButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              color: Colors.red,
-            ),
-          ],
+                },
+              ),
+              // after verification failed navigates new register screen, spinner still running when press
+              // this button ?
+              BackButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                color: Colors.red,
+              ),
+            ],
+          ),
         ),
       ),
     );

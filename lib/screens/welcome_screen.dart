@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flash_chat/screens/login_screen.dart';
 import 'package:flash_chat/screens/registration_screen.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +8,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'chat_screen.dart';
 
 import 'package:flash_chat/components/buttons.dart';
+
+import 'package:flash_chat/globals.dart';
 
 class WelcomeScreen extends StatefulWidget {
   static const String page_id = 'welcome_screen';
@@ -16,18 +20,9 @@ class WelcomeScreen extends StatefulWidget {
 class _WelcomeScreenState extends State<WelcomeScreen>
     with SingleTickerProviderStateMixin {
   AnimationController controller;
-
-  @override
+  bool isCurrentRoute = false;
   void initState() {
     super.initState();
-    FirebaseAuth.instance.authStateChanges().listen((User user) {
-      if (user == null) {
-        print('welcome_screen: unsigned user');
-      } else {
-        print('welcome_screen: ${user.uid}');
-        Navigator.pushNamed(context, ChatScreen.page_id);
-      }
-    });
     controller = AnimationController(
       duration: Duration(seconds: 1),
       vsync: this,
@@ -39,11 +34,28 @@ class _WelcomeScreenState extends State<WelcomeScreen>
         controller.value;
       });
     });
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
+    mAuth.authStateChanges().listen((User user) {
+      if (user == null) {
+        print('welcome_screen: unsigned user');
+        // if current screen not Welcome screen return it
+        Navigator.popUntil(
+          context,
+          (route) {
+            if (route.settings.name == ChatScreen.page_id) {
+              isCurrentRoute = true;
+              print('true');
+            }
+            return true;
+          },
+        );
+        if (isCurrentRoute) {
+          Navigator.pushNamed(context, WelcomeScreen.page_id);
+        }
+      } else {
+        print('welcome_screen: ${user.uid}');
+        Navigator.pushNamed(context, ChatScreen.page_id);
+      }
+    });
   }
 
   @override
@@ -78,13 +90,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
               ),
               SizedBox(
                 height: 32.0,
-              ),
-              Cbutton(
-                vColor: Colors.lightBlueAccent,
-                vText: 'Log In',
-                fPressed: () {
-                  Navigator.pushNamed(context, LoginScreen.page_id);
-                },
               ),
               Cbutton(
                 vColor: Colors.blueAccent,

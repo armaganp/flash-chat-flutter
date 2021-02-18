@@ -1,14 +1,18 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flash_chat/screens/registration_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flash_chat/constants.dart';
+import 'package:flash_chat/globals.dart';
 
 class ChatScreen extends StatefulWidget {
   static const String page_id = 'chat_screen';
+  final UserCredential userInfo;
+  ChatScreen({this.userInfo});
   @override
   _ChatScreenState createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -16,8 +20,8 @@ class _ChatScreenState extends State<ChatScreen> {
         actions: <Widget>[
           IconButton(
               icon: Icon(Icons.close),
-              onPressed: () {
-                //Implement logout functionality
+              onPressed: () async {
+                await mAuth.signOut();
               }),
         ],
         title: Text('⚡️Chat'),
@@ -25,9 +29,16 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: SafeArea(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
+            TextButton(
+              child: Text('text'),
+              onPressed: () {
+                print('this: ${userCredential.user.uid}');
+                // print('this: ${vUser.uid}');
+              },
+            ),
             Container(
               decoration: kMessageContainerDecoration,
               child: Row(
