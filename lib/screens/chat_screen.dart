@@ -1,3 +1,6 @@
+import 'dart:developer';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flash_chat/screens/registration_screen.dart';
 import 'package:flutter/material.dart';
@@ -6,13 +9,12 @@ import 'package:flash_chat/globals.dart';
 
 class ChatScreen extends StatefulWidget {
   static const String page_id = 'chat_screen';
-  final UserCredential userInfo;
-  ChatScreen({this.userInfo});
   @override
   _ChatScreenState createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  var userNick = 'whoAmI';
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -35,10 +37,17 @@ class _ChatScreenState extends State<ChatScreen> {
             TextButton(
               child: Text('text'),
               onPressed: () {
-                // print('this: ${userCredential.user.uid}');
-                print('this: ${vUser.uid}');
+                var docRefName = db.collection("Users").doc(vUser.uid);
+                docRefName.get().then((doc) {
+                  if (doc.exists) {
+                    setState(() {
+                      userNick = doc.data().toString();
+                    });
+                  }
+                });
               },
             ),
+            Text(userNick),
             Container(
               decoration: kMessageContainerDecoration,
               child: Row(

@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:developer';
 
 import 'package:flash_chat/screens/login_screen.dart';
 import 'package:flash_chat/screens/registration_screen.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'chat_screen.dart';
+import 'package:flutter/foundation.dart';
 
 import 'package:flash_chat/components/buttons.dart';
 
@@ -36,15 +39,14 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     });
     mAuth.authStateChanges().listen((User user) {
       if (user == null) {
-        vUser = user;
-        print('welcome_screen: unsigned user');
+        log('ws: user not registered');
         // if current screen not Welcome screen return it
         Navigator.popUntil(
           context,
           (route) {
             if (route.settings.name == ChatScreen.page_id) {
               isCurrentRoute = true;
-              print('true');
+              log('ws: user unsigned  ');
             }
             return true;
           },
@@ -53,8 +55,11 @@ class _WelcomeScreenState extends State<WelcomeScreen>
           Navigator.pushNamed(context, WelcomeScreen.page_id);
         }
       } else {
-        vUser = user;
-        print('welcome_screen: ${user.uid}');
+        vUser = user; // user to global area
+        log('ws: already registered user');
+        if (gUserCredential != null)
+          log(' ws: new user: $gUserCredential'); // log credentials when user is new
+        log('ws: ${user.uid}');
         Navigator.pushNamed(context, ChatScreen.page_id);
       }
     });
