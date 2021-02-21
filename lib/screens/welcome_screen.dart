@@ -56,6 +56,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
         }
       } else {
         vUser = user; // user to global area
+        log(vUser.phoneNumber);
         log('ws: already registered user');
         if (gUserCredential != null)
           log(' ws: new user: $gUserCredential'); // log credentials when user is new

@@ -24,15 +24,16 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   var nickName;
   String smsCode;
 
-  static bool isInvalidNumber = false;
-  static bool isSmsWrong = false; // time out
-  static bool isCancel = false;
-
   bool showSpinner = false;
+
+  bool isInvalidNumber = false;
+  bool isSmsWrong = false; // time out
+  bool isCancel = false;
+
   UserCredential vUserCredential;
   String msg;
 
-  void saveUser(var phoneNum, var uid) {
+  void saveUser(var phoneNum, var id) {
     print('saving..');
     // db.collection("Users").add({
     //   "phoneNumber": phoneNum,
@@ -41,13 +42,25 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     // }).then((_) {
     //   print('success');
     // });
-    db.collection("Users").doc(uid).set({
+    db.collection("Users").doc(id).set({
+      "uid": id,
       "phoneNumber": phoneNum,
       "nick": nickName,
+    }).then((_) {
+      log('saveUser: user saved');
     });
   }
 
-  Future<Null> verifyPhone() async {
+  exitVerifyPhone() {
+    setState(() {
+      showSpinner = false;
+    });
+  }
+
+  Future<void> verifyPhone() async {
+    setState(() {
+      showSpinner = true;
+    });
     await mAuth.verifyPhoneNumber(
       phoneNumber: phoneNumber,
       verificationCompleted: (PhoneAuthCredential phoneAuthCredential) async {
@@ -64,6 +77,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         } catch (e) {
           return e;
         }
+        exitVerifyPhone();
       },
       verificationFailed: (FirebaseAuthException e) {
         if (e.code == 'invalid-phone-number') {
@@ -71,11 +85,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           isInvalidNumber = true; //*
           isSmsWrong = false;
           isCancel = false;
-          Navigator.pushNamed(context, RegistrationScreen.page_id);
+          // Navigator.pushNamed(context, RegistrationScreen.page_id);
         } else {
           log('from verificationFailed: $e'); // debug purpose only
           log('verification failed due to unknown status'); // implement unknown status maybe later
         }
+        exitVerifyPhone();
       },
       codeSent: (String verificationId, [int resendToken]) async {
         smsCode = await showSmsDialogBox();
@@ -85,8 +100,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           isCancel = true; // *
           isInvalidNumber = false;
           isSmsWrong = false;
-          Navigator.pushNamed(context, RegistrationScreen.page_id);
           log('process canceled form user');
+          exitVerifyPhone();
         }
         PhoneAuthCredential phoneAuthCredential = PhoneAuthProvider.credential(
           verificationId: verificationId,
@@ -106,6 +121,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         } catch (e) {
           return e;
         }
+        exitVerifyPhone();
       },
       timeout: const Duration(seconds: 10),
       //# when sms code is incorrect that code triggered
@@ -116,7 +132,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           isSmsWrong = true; // *
           isCancel = false;
           isInvalidNumber = false;
-          Navigator.pushNamed(context, RegistrationScreen.page_id);
+          exitVerifyPhone();
+          // Navigator.pushNamed(context, RegistrationScreen.page_id);
         }
       },
     );
@@ -141,7 +158,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     String wrongNumber = 'invalid number ';
     String wrongSmsCode = 'invalid sms code ';
     String cancel = 'canceled';
-
     return Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: Colors.white,
@@ -220,12 +236,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 // SEND ME CODE
                 vColor: Colors.blueAccent,
                 vText: 'Send Me Code',
-                fPressed: () {
+                fPressed: () async {
                   if (phoneNumber != null && nickName != null) {
-                    setState(() {
-                      showSpinner = true;
-                      verifyPhone();
-                    });
+                    await verifyPhone();
                   } else {
                     fShowSnackBar('enter your number or nickname');
                   }
