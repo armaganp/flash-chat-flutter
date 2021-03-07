@@ -1,6 +1,7 @@
 import 'dart:developer';
 import 'dart:ui';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flash_chat/components/buttons.dart';
 import 'package:flash_chat/constants.dart';
 import 'package:flash_chat/globals.dart';
@@ -9,9 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flash_chat/services/phone_verification.dart';
 import 'package:modal_progress_hud/modal_progress_hud.dart';
-import 'package:flash_chat/components/sms_dialog_box.dart';
 
 class RegistrationScreen extends StatefulWidget {
   static const String page_id = 'registration_screen';
@@ -20,6 +19,8 @@ class RegistrationScreen extends StatefulWidget {
 }
 
 class _RegistrationScreenState extends State<RegistrationScreen> {
+  TextEditingController textEditingControllerUsername = TextEditingController();
+  TextEditingController textEditingControllerPhone = TextEditingController();
   var phoneNumber;
   var nickName;
   String smsCode;
@@ -29,26 +30,38 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   bool isInvalidNumber = false;
   bool isSmsWrong = false; // time out
   bool isCancel = false;
+  bool userIsRegistered;
 
-  UserCredential vUserCredential;
-  String msg;
-
-  void saveUser(var phoneNum, var id) {
-    print('saving..');
-    // db.collection("Users").add({
-    //   "phoneNumber": phoneNum,
-    //   "uid": uid,
-    //   "nick": gUserNick,
-    // }).then((_) {
-    //   print('success');
-    // });
-    db.collection("Users").doc(id).set({
+  String snackBarMsg;
+  void saveUser(var phoneNum, var id) async {
+    log('saveUser(): saving..');
+    db.collection("Users").doc(nickName).set({
       "uid": id,
       "phoneNumber": phoneNum,
-      "nick": nickName,
     }).then((_) {
-      log('saveUser: user saved');
+      log('saveUser(): user saved');
     });
+  }
+
+  //nickname and phone number must  be not already taken if so we have to cancel saving process
+  //[BUG]maybe user is saved before this function complete
+  // 3/6/2021 yep its working right now
+  Future<bool> controlUser() async {
+    setState(() {
+      showSpinner = true;
+    });
+    Map<String, dynamic> mapData;
+    QuerySnapshot messages = await db.collection('Users').get();
+    for (var doc in messages.docs) {
+      mapData = doc.data();
+      String phone = '${mapData['phoneNumber']}';
+      log('${doc.id} $phone');
+      if (nickName == doc.id || phoneNumber == phone) {
+        log('already taken nick or phone number');
+        return false;
+      }
+    }
+    return true;
   }
 
   exitVerifyPhone() {
@@ -58,9 +71,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   Future<void> verifyPhone() async {
-    setState(() {
-      showSpinner = true;
-    });
     await mAuth.verifyPhoneNumber(
       phoneNumber: phoneNumber,
       verificationCompleted: (PhoneAuthCredential phoneAuthCredential) async {
@@ -85,7 +95,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           isInvalidNumber = true; //*
           isSmsWrong = false;
           isCancel = false;
-          // Navigator.pushNamed(context, RegistrationScreen.page_id);
         } else {
           log('from verificationFailed: $e'); // debug purpose only
           log('verification failed due to unknown status'); // implement unknown status maybe later
@@ -94,8 +103,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       },
       codeSent: (String verificationId, [int resendToken]) async {
         smsCode = await showSmsDialogBox();
-        log('code sent $smsCode');
-
         if (smsCode == null) {
           isCancel = true; // *
           isInvalidNumber = false;
@@ -103,6 +110,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           log('process canceled form user');
           exitVerifyPhone();
         }
+
         PhoneAuthCredential phoneAuthCredential = PhoneAuthProvider.credential(
           verificationId: verificationId,
           smsCode: smsCode,
@@ -133,15 +141,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           isCancel = false;
           isInvalidNumber = false;
           exitVerifyPhone();
-          // Navigator.pushNamed(context, RegistrationScreen.page_id);
         }
       },
     );
   }
 
-  fShowSnackBar(String msg) {
+  fShowSnackBar(String snackBarMsg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
+      content: Text(snackBarMsg),
       action: SnackBarAction(
         textColor: Colors.amber,
         label: 'message',
@@ -155,6 +162,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // later implemet it
+    // if (isInvalidNumber || isSmsWrong || isCancel) {
+    //   textEditingControllerPhone.clear();
+    //   textEditingControllerUsername.clear();
+    // }
     String wrongNumber = 'invalid number ';
     String wrongSmsCode = 'invalid sms code ';
     String cancel = 'canceled';
@@ -203,7 +215,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       ),
                     )
                   : Container()),
+              // text files must be clear after  an error edit -> 3/6/2021 add error code for already taken phone and username
               TextField(
+                controller: textEditingControllerUsername,
                 textAlign: TextAlign.center,
                 keyboardType: TextInputType.name,
                 inputFormatters: <TextInputFormatter>[
@@ -220,6 +234,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 height: 8,
               ),
               TextField(
+                controller: textEditingControllerPhone,
                 textAlign: TextAlign.center,
                 keyboardType: TextInputType.phone,
                 inputFormatters: <TextInputFormatter>[
@@ -238,7 +253,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 vText: 'Send Me Code',
                 fPressed: () async {
                   if (phoneNumber != null && nickName != null) {
-                    await verifyPhone();
+                    userIsRegistered = await controlUser();
+                    if (userIsRegistered) {
+                      await verifyPhone();
+                    } else {
+                      log('already registered user');
+                      exitVerifyPhone();
+                      // exitVerifyPhone();
+                    }
                   } else {
                     fShowSnackBar('enter your number or nickname');
                   }

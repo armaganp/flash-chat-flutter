@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:developer';
+import 'package:intl/intl.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flash_chat/constants.dart';
@@ -12,62 +14,155 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  var who = '';
   String textMessage;
   int textNum = 0;
+  List<Widget> card = [];
 
-  Future<String> getNick() async {
-    var collectionUser;
-    DocumentSnapshot userNickSnapshot;
-    Map<String, dynamic> data;
+  ScrollController _controller = ScrollController();
 
-    collectionUser = db.collection('Users');
-    userNickSnapshot = await collectionUser.doc(vUser.uid).get();
-    if (userNickSnapshot.exists) {
-      data = userNickSnapshot.data();
-    } else {
-      log('getNick: something went wrong');
-    }
-    log('getNick: ${data['nick']}');
-    return '${data['nick']}';
+  initState() {
+    super.initState();
+    realtimeReadText();
   }
 
-  void realtimeReadText() {}
+  Future<String> getNick() async {
+    QuerySnapshot user;
+    String uid;
 
-  void readText() async {
-    var path = await getNick();
-    var collectionMessages;
-    DocumentSnapshot userTextSnapshot;
-    Map<String, dynamic> data;
-
-    collectionMessages = db.collection('Messages');
-    userTextSnapshot = await collectionMessages.doc(path).get();
-    if (userTextSnapshot.exists) {
-      setState(() {
-        data = userTextSnapshot.data();
-        who = '${data['text']}';
-        // String data = userTextSnapshot.get('text');
-        // who = data;
-      });
+    user = await db.collection('Users').get();
+    for (var doc in user.docs) {
+      uid = doc.data()['uid'];
+      if (uid == vUser.uid) {
+        return doc.id;
+      }
     }
+    // if we reach here that mean is user not found
+    return null;
+  }
+
+  Future<void> realtimeReadText() async {
+    Stream<QuerySnapshot> queryStream = db.collection('Messages').snapshots();
+    QuerySnapshot lastMessage;
+    QueryDocumentSnapshot doc;
+    CrossAxisAlignment side;
+    Timestamp timestamp;
+    DateTime dateTime;
+    String time;
+    String whoAmI;
+    String sender;
+    String message;
+
+    queryStream.listen((snapshot) async {
+      log('new snapshot');
+      lastMessage = await db
+          .collection('Messages')
+          .orderBy('time', descending: true)
+          .limit(1)
+          .get();
+      doc = lastMessage.docs[0];
+
+      log('sender: ${doc.data()['sender']}');
+      log('msg: ${doc.data()['msg']}');
+
+      whoAmI = await getNick();
+      timestamp = doc.data()['time'] as Timestamp;
+      dateTime = timestamp.toDate();
+      time = DateFormat.Hm().format(dateTime);
+      if (doc.data() != null) {
+        setState(() {
+          sender = doc.data()['sender'];
+          message = doc.data()['msg'];
+          if (doc.id == whoAmI) {
+            side = CrossAxisAlignment.start;
+          } else {
+            side = CrossAxisAlignment.end;
+          }
+        });
+        card.insert(
+          0,
+          Container(
+            width: MediaQuery.of(context).size.width,
+            margin: EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+            child: Column(
+              crossAxisAlignment: side,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 0.6 * MediaQuery.of(context).size.width,
+                  decoration: BoxDecoration(
+                    color: Colors.white12,
+                  ),
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 2),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              sender,
+                              style: TextStyle(
+                                color: Colors.white60,
+                                fontSize: 11,
+                              ),
+                            ),
+                            Text(
+                              message,
+                              style: TextStyle(
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        // padding: const EdgeInsets.only(left: 220),
+                        padding: const EdgeInsets.fromLTRB(180, 0, 8, 8),
+                        child: Column(
+                          // crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              time,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.white54,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    });
   }
 
   void saveText(var text) async {
-    var path = await getNick();
-    log('saveText: $text');
+    var nickName = await getNick();
+    var timeStamp = DateTime.now();
 
-    db.collection('Messages').doc(path).set({
-      "text": text,
-      "textNum": textNum++,
-    }).then((_) {
-      log('saveText: text saved');
+    db.collection('Messages').doc(nickName).set({
+      'msg': text,
+      'time': timeStamp,
+      'sender': nickName
+      // 'time': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: false)).then((_) {
+      log('saved');
     });
   }
 
   Widget build(BuildContext context) {
+    TextEditingController textEditingController = TextEditingController();
+    textEditingController.clear();
     return Scaffold(
       appBar: AppBar(
-        leading: null,
+        // leading: null,
         actions: <Widget>[
           IconButton(
               icon: Icon(Icons.close),
@@ -75,64 +170,49 @@ class _ChatScreenState extends State<ChatScreen> {
                 await mAuth.signOut(); // this notify auth state listener
               }),
         ],
-        title: Text('⚡️Chat'),
-        backgroundColor: Colors.lightBlueAccent,
+        title: Text('⚡️Anibal Pano'),
+        backgroundColor: Colors.blueGrey,
       ),
       body: SafeArea(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
           children: <Widget>[
-            Expanded(
-              flex: 5,
-              child: Container(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    InkWell(
-                      child: Text('show msg'),
-                      onTap: () {
-                        setState(() {
-                          readText();
-                        });
+            Container(
+              decoration: kMessageContainerDecoration,
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    flex: 5,
+                    child: TextField(
+                      controller: textEditingController,
+                      onChanged: (value) {
+                        textMessage = value;
+                      },
+                      decoration: kMessageTextFieldDecoration,
+                    ),
+                  ),
+                  Expanded(
+                    child: IconButton(
+                      icon: Icon(Icons.send),
+                      onPressed: () {
+                        if (textEditingController.text.trim().isNotEmpty) {
+                          saveText(textMessage);
+                        }
                       },
                     ),
-                    Text(who),
-                  ],
-                ),
-              ),
-            ),
-            Expanded(
-              child: Container(
-                decoration: kMessageContainerDecoration,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: <Widget>[
-                    Expanded(
-                      flex: 3,
-                      child: TextField(
-                        onChanged: (value) {
-                          //Do something with the user input.
-                          textMessage = value;
-                        },
-                        decoration: kMessageTextFieldDecoration,
-                      ),
-                    ),
-                    Expanded(
-                      child: IconButton(
-                        icon: Icon(Icons.send),
-                        onPressed: () {
-                          saveText(textMessage);
-                          //Implement send functionality.
-                        },
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
             SizedBox(
-              height: 10.0,
-            )
+              height: 8.0,
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: card,
+                ),
+              ),
+            ),
           ],
         ),
       ),
